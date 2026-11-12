@@ -26,7 +26,7 @@
 </head>
 <body>
 
-    <div id="score-board">Score: <span id="score">0</span></div>
+    <div id="score-board">1 Ghost | Score: <span id="score">0</span></div>
     <canvas id="gameCanvas" width="380" height="400"></canvas>
 
     <script>
@@ -39,7 +39,6 @@
         var gameOver = false;
         var gameWon = false;
 
-        // "1" = Blue Wall, "0" = Dot to eat, "2" = Empty Space
         var mapLayout = [
             "1111111111111111111",
             "1000000001000000001",
@@ -63,7 +62,6 @@
             "1111111111111111111"
         ];
 
-        // Convert the string array into numbers for the game logic
         var map = [];
         for (var r = 0; r < mapLayout.length; r++) {
             map[r] = [];
@@ -84,14 +82,9 @@
             angle: 0.2
         };
 
-        var ghost = {
-            x: 9 * tileSize,
-            y: 7 * tileSize,
-            radius: 8,
-            speed: 2,
-            dirX: 1,
-            dirY: 0
-        };
+        var ghosts = [
+            { x: 9 * tileSize, y: 7 * tileSize, radius: 8, speed: 2, dirX: 1, dirY: 0, color: "#ff0000" }
+        ];
 
         window.addEventListener("keydown", function(e) {
             if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.key) > -1) {
@@ -141,48 +134,54 @@
             if (pacman.x >= canvas.width) pacman.x = 0;
         }
 
-        function updateGhost() {
-            if (ghost.x % tileSize === 0 && ghost.y % tileSize === 0) {
-                var currentTileX = Math.floor(ghost.x / tileSize);
-                var currentTileY = Math.floor(ghost.y / tileSize);
+        function updateGhosts() {
+            for (var g = 0; g < ghosts.length; g++) {
+                var ghost = ghosts[g];
+                if (ghost.x % tileSize === 0 && ghost.y % tileSize === 0) {
+                    var currentTileX = Math.floor(ghost.x / tileSize);
+                    var currentTileY = Math.floor(ghost.y / tileSize);
 
-                var directions = [
-                    {x: 1, y: 0}, {x: -1, y: 0},
-                    {x: 0, y: 1}, {x: 0, y: -1}
-                ];
-                
-                var validDirs = [];
-                for (var i = 0; i < directions.length; i++) {
-                    var d = directions[i];
-                    if (d.x === -ghost.dirX && d.y === -ghost.dirY) continue;
-                    if (!isWallAt(currentTileX + d.x, currentTileY + d.y)) {
-                        validDirs.push(d);
+                    var directions = [
+                        {x: 1, y: 0}, {x: -1, y: 0},
+                        {x: 0, y: 1}, {x: 0, y: -1}
+                    ];
+                    
+                    var validDirs = [];
+                    for (var i = 0; i < directions.length; i++) {
+                        var d = directions[i];
+                        if (d.x === -ghost.dirX && d.y === -ghost.dirY) continue;
+                        if (!isWallAt(currentTileX + d.x, currentTileY + d.y)) {
+                            validDirs.push(d);
+                        }
+                    }
+
+                    if (validDirs.length === 0) {
+                        if (!isWallAt(currentTileX - ghost.dirX, currentTileY - ghost.dirY)) {
+                            ghost.dirX = -ghost.dirX;
+                            ghost.dirY = -ghost.dirY;
+                        }
+                    } else {
+                        var chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
+                        ghost.dirX = chosen.x;
+                        ghost.dirY = chosen.y;
                     }
                 }
 
-                if (validDirs.length === 0) {
-                    if (!isWallAt(currentTileX - ghost.dirX, currentTileY - ghost.dirY)) {
-                        ghost.dirX = -ghost.dirX;
-                        ghost.dirY = -ghost.dirY;
-                    }
-                } else {
-                    var chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
-                    ghost.dirX = chosen.x;
-                    ghost.dirY = chosen.y;
-                }
+                ghost.x += ghost.dirX * ghost.speed;
+                ghost.y += ghost.dirY * ghost.speed;
+
+                if (ghost.x < 0) ghost.x = canvas.width - tileSize;
+                if (ghost.x >= canvas.width) ghost.x = 0;
             }
-
-            ghost.x += ghost.dirX * ghost.speed;
-            ghost.y += ghost.dirY * ghost.speed;
-
-            if (ghost.x < 0) ghost.x = canvas.width - tileSize;
-            if (ghost.x >= canvas.width) ghost.x = 0;
         }
 
         function checkCollisions() {
-            var dist = Math.hypot((pacman.x + tileSize/2) - (ghost.x + tileSize/2), (pacman.y + tileSize/2) - (ghost.y + tileSize/2));
-            if (dist < pacman.radius + ghost.radius) {
-                gameOver = true;
+            for (var g = 0; g < ghosts.length; g++) {
+                var ghost = ghosts[g];
+                var dist = Math.hypot((pacman.x + tileSize/2) - (ghost.x + tileSize/2), (pacman.y + tileSize/2) - (ghost.y + tileSize/2));
+                if (dist < pacman.radius + ghost.radius) {
+                    gameOver = true;
+                }
             }
         }
 
@@ -232,11 +231,14 @@
             ctx.fill();
         }
 
-        function drawGhost() {
-            ctx.fillStyle = "#ff0000"; 
-            ctx.beginPath();
-            ctx.arc(ghost.x + tileSize/2, ghost.y + tileSize/2, ghost.radius, 0, Math.PI * 2);
-            ctx.fill();
+        function drawGhosts() {
+            for (var g = 0; g < ghosts.length; g++) {
+                var ghost = ghosts[g];
+                ctx.fillStyle = ghost.color; 
+                ctx.beginPath();
+                ctx.arc(ghost.x + tileSize/2, ghost.y + tileSize/2, ghost.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         function gameLoop() {
@@ -246,12 +248,12 @@
             
             if (!gameOver && !gameWon) {
                 updatePacman();
-                updateGhost();
+                updateGhosts();
                 checkCollisions();
             }
 
             drawPacman();
-            drawGhost();
+            drawGhosts();
 
             if (gameOver) {
                 ctx.fillStyle = "red";
